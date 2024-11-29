@@ -11,6 +11,18 @@ const getAllChats = async (req: Request, res: Response) => {
   }
 };
 
+const getMessagesByRoom = async (req: Request, res: Response) => {
+  const { room } = req.params;
+
+  try {
+    const messages = await Chat.find({ room });
+    res.status(200).json(messages);
+  } catch (error) {
+    res.status(500).json({ message: 'Error retrieving messages.' });
+  }
+};
+
 export default {
-  getAllChats
+  getAllChats,
+  getMessagesByRoom
 }

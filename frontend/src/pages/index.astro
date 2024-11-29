@@ -1,0 +1,244 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content="Astro" />
+    <title>Astro Chat</title>
+    <style>
+      /* General Styles */
+      body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f5f5f5;
+        color: #333;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        text-align: center;
+        color: #25d366; /* WhatsApp Green */
+        margin-bottom: 20px;
+        font-size: 32px;
+      }
+
+      h2 {
+        margin-top: 30px;
+        font-size: 22px;
+        color: #444;
+      }
+
+      /* Chat Room Buttons */
+      .btn-room {
+        background-color: #25d366; /* WhatsApp Green */
+        color: #fff;
+        border: none;
+        padding: 10px;
+        margin: 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .btn-room:hover {
+        background-color: #128c7e;
+      }
+
+      /* Message Form */
+      .message-form {
+        display: flex;
+        margin-top: 20px;
+        justify-content: space-between;
+      }
+
+      .message-form input {
+        width: 75%;
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-right: 10px;
+      }
+
+      .message-form button {
+        padding: 10px 20px;
+        background-color: #25d366;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .message-form button:hover {
+        background-color: #128c7e;
+      }
+
+      /* Message List */
+      .messages {
+        list-style: none;
+        padding: 0;
+        margin-top: 20px;
+        max-height: 400px;
+        overflow-y: scroll;
+      }
+
+      .message {
+        display: flex;
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #e9e9e9;
+      }
+
+      .message.sent {
+        background-color: #dcf8c6;
+        margin-left: auto;
+        align-self: flex-start;
+        border-radius: 8px;
+      }
+
+      .message.received {
+        background-color: #fff;
+        margin-right: auto;
+        align-self: flex-start;
+        border-radius: 8px;
+      }
+
+      .message strong {
+        font-weight: bold;
+        margin-right: 10px;
+      }
+
+      .message p {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      /* Chat Input */
+      .messages::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .messages::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+      }
+
+      .messages::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Astro Chat</h1>
+
+      <div>
+        <button class="btn-room" data-room="Room 1">Room 1</button>
+        <button class="btn-room" data-room="Room 2">Room 2</button>
+        <button class="btn-room" data-room="Room 3">Room 3</button>
+      </div>
+
+      <form class="message-form">
+        <input type="text" id="usernameInput" required placeholder="Enter your username">
+        <input type="text" id="messageInput" required placeholder="Enter your message">
+        <button type="submit">Send message</button>
+      </form>
+
+      <h2>Messages</h2>
+      <ul class="messages"></ul>
+    </div>
+
+    <script type="module">
+      import { io } from "https://cdn.socket.io/4.8.1/socket.io.esm.min.js";
+
+      const socket = io('http://localhost:3000'); // Backend Socket URL
+      const roomButtons = document.querySelectorAll('.btn-room');
+      const messages = document.querySelector('.messages');
+      const messageForm = document.querySelector('.message-form');
+      const usernameInput = document.querySelector('#usernameInput');
+      const messageInput = document.querySelector('#messageInput');
+
+      let currentRoom = ''; 
+
+      roomButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const newRoom = btn.getAttribute('data-room');
+          const username = usernameInput.value.trim() || 'Anonymous';
+
+          if (currentRoom) {
+            socket.emit('leaveRoom', currentRoom);
+            socket.emit('sendMessage', {
+              username: 'System',
+              message: `${username} has left the room`,
+              room: currentRoom
+            });
+          }
+
+          currentRoom = newRoom;
+          socket.emit('joinRoom', currentRoom);
+          socket.emit('sendMessage', {
+            username: 'System',
+            message: `${username} has joined the room`,
+            room: currentRoom
+          });
+
+          messages.innerHTML = '';
+        });
+      });
+
+      messageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = usernameInput.value.trim();
+        const message = messageInput.value.trim();
+
+        if (currentRoom && message) {
+          socket.emit('sendMessage', {
+            username,
+            message,
+            room: currentRoom
+          });
+          messageInput.value = '';
+        }
+      });
+
+      socket.on('newMessage', (data) => {
+        if (data.room === currentRoom || !data.room) {
+          const li = document.createElement('li');
+          li.classList.add('message', data.username === 'System' ? 'received' : 'sent');
+          li.innerHTML = `<strong>${data.username}:</strong> <p>${data.message}</p>`;
+          messages.appendChild(li);
+          messages.scrollTop = messages.scrollHeight;
+        }
+      });
+
+      socket.on('previousMessages', (messagesData) => {
+        messagesData.forEach((message) => {
+          const li = document.createElement('li');
+          li.classList.add('message', 'received');
+          li.innerHTML = `<strong>${message.username}:</strong> <p>${message.message}</p>`;
+          messages.appendChild(li);
+        });
+        messages.scrollTop = messages.scrollHeight;
+      });
+
+      socket.on('connect', () => {
+        console.log('Connected to the server');
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Disconnected from the server');
+      });
+    </script>
+  </body>
+</html>

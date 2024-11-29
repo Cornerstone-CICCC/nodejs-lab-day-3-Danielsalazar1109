@@ -8,41 +8,41 @@ import chatSocket from './sockets/chat.socket';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Create server
+// Crear servidor Express
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Rutas
 app.use('/api/chat', chatRouter);
 
-// Create HTTP server and attach Socket.IO
+// Crear servidor HTTP y adjuntar Socket.IO
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '', // Your frontend url here (Astro, React, vanilla HTML)
+    origin: 'http://localhost:4321', // Ajusta esto según tu frontend
     methods: ["GET", "POST"]
   },
 });
 
-// Connect to MongoDB and start server
+// Conectar con MongoDB y arrancar el servidor
 const MONGO_URI = process.env.DATABASE_URL!
 mongoose
   .connect(MONGO_URI, { dbName: 'chatroom' })
   .then(() => {
-    console.log('Connected to MongoDB database');
+    console.log('Conectado a la base de datos MongoDB');
 
-    // Start Socket.IO
+    // Iniciar Socket.IO
     chatSocket(io);
 
-    // Start the server
+    // Arrancar el servidor Express
     const PORT = process.env.PORT || 3000;
     server.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`Servidor funcionando en http://localhost:${PORT}`);
     });
   })
   .catch((error) => {
-    console.error('Error connecting to MongoDB:', error);
+    console.error('Error conectando con MongoDB:', error);
   });
